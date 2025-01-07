@@ -76,7 +76,8 @@ WHERE SIMILAR_TO("How to improve productivity", 0.8)
 SELECT SENTENCE 
 WHERE CONTAINS("innovation") 
 AND SENTIMENT_IS("positive")
-ORDER BY LENGTH
+-- Here LENGTH is not a keyword, you need to register it manually. -> nlql.register_metadata_extractor("LENGTH", lambda x: len(x))
+ORDER BY LENGTH 
 LIMIT 10
 ```
 
