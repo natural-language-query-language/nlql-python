@@ -103,7 +103,6 @@ NLQL supports custom extensions through:
    - Register custom operators
    - Add new query units
    - Implement custom functions
-```
 
 ## Getting Started
 
