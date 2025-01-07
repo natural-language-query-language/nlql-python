@@ -85,20 +85,6 @@ class NLQL:
         self._operator_factory.register_operator(token_type, operator_class)
         return self
 
-    def set_sentiment_analyzer(
-        self,
-        analyzer: BaseSentimentAnalyzer
-    ) -> 'NLQL':
-        """Set a custom sentiment analyzer."""
-        from .executor.operators import SentimentOperator
-        from .lexer.token import TokenType
-        sentiment_op = SentimentOperator(analyzer=analyzer)
-        self._operator_factory.register_operator(
-            TokenType.SENTIMENT_IS,
-            lambda: sentiment_op
-        )
-        return self
-
     def clear_cache(self) -> 'NLQL':
         """
         Clear the query cache.
