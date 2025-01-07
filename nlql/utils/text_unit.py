@@ -361,11 +361,7 @@ class TextUnitizer:
         metadata = {}
         for key, extractor in extractors.items():
             try:
-                if key == 'char_count':
-                    # 只移除首尾空格，保留内部空格
-                    metadata[key] = len(text.strip())
-                else:
-                    metadata[key] = extractor(text)
+                metadata[key] = extractor(text)
             except Exception as e:
                 metadata[key] = None
         return metadata

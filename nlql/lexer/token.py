@@ -26,6 +26,8 @@ class TokenType(Enum):
     SIMILAR_TO = auto()
     TOPIC_IS = auto()
     SENTIMENT_IS = auto()
+    VECTOR_SIMILAR = auto()
+    EMBEDDING_DISTANCE = auto()
     
     # Comparison operators
     LT = auto()  # <

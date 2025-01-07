@@ -1,5 +1,7 @@
-from typing import Any
+from typing import Any, Optional
 from enum import Enum
+
+from nlql.executor.semantic import BaseSemanticMatcher, BaseTopicAnalyzer, BaseVectorEncoder, SimpleSemanticMatcher, SimpleTopicAnalyzer, SimpleVectorEncoder
 from ..exceptions import OperatorError
 from ..lexer.token import TokenType
 from ..utils.text_unit import TextUnit
@@ -102,38 +104,171 @@ class LengthOperator(BaseOperator):
             
         return comparison(length, value)
 
-try:
-    import jieba
-    JIEBA_AVAILABLE = True
+class TopicOperator(BaseOperator):
+    """Topic matching operator that uses a configurable analyzer."""
     
-    class TopicOperator(BaseOperator):
-        """Operator that checks text topic using jieba."""
+    def __init__(self, analyzer: Optional[BaseTopicAnalyzer] = None):
+        """
+        Initialize the topic operator.
         
-        def __init__(self):
-            """Initialize the topic operator."""
-            super().__init__("topic")
-            jieba.initialize()
-            
-        def __call__(self, unit: TextUnit, topic: str) -> bool:
-            """Check if the text unit belongs to the specified topic."""
-            if not isinstance(topic, str):
-                raise OperatorError("TOPIC_IS requires a string argument")
-                
-            # Get keywords using jieba
-            keywords = jieba.analyse.extract_tags(unit.content, topK=5)
-            topic_keywords = jieba.analyse.extract_tags(topic, topK=5)
-            
-            # Check keyword overlap
-            overlap = set(keywords) & set(topic_keywords)
-            return len(overlap) > 0
-            
-except ImportError:
-    class TopicOperator(BaseOperator):
-        """Dummy topic operator when jieba is not available."""
+        Args:
+            analyzer (BaseTopicAnalyzer, optional): Custom topic analyzer.
+                If None, uses the SimpleTopicAnalyzer.
+        """
+        super().__init__("topic")
+        self.analyzer = analyzer or SimpleTopicAnalyzer()
+
+    def __call__(self, unit: TextUnit, topic: str) -> bool:
+        """
+        Check if the text unit matches the given topic.
         
-        def __call__(self, unit: TextUnit, topic: str) -> bool:
-            """Always return False when jieba is not available."""
-            raise OperatorError("TOPIC_IS operator requires jieba library")
+        Args:
+            unit (TextUnit): Text unit to analyze
+            topic (str): Topic to match against
+            
+        Returns:
+            bool: Whether the text matches the topic
+        """
+        if not isinstance(topic, str):
+            raise OperatorError("TOPIC_IS requires a string argument")
+            
+        return self.analyzer.match_topic(
+            unit.content,
+            topic,
+            unit.language
+        )
+
+class SimilarToOperator(BaseOperator):
+    """Semantic similarity operator using a configurable matcher."""
+    
+    def __init__(self, matcher: Optional[BaseSemanticMatcher] = None):
+        """
+        Initialize the similarity operator.
+        
+        Args:
+            matcher (BaseSemanticMatcher, optional): Custom semantic matcher.
+                If None, uses the SimpleSemanticMatcher.
+        """
+        super().__init__("similar")
+        self.matcher = matcher or SimpleSemanticMatcher()
+
+    def __call__(self, unit: TextUnit, target: str, threshold: float = 0.5) -> bool:
+        """
+        Check if the text unit is semantically similar to the target text.
+        
+        Args:
+            unit (TextUnit): Text unit to analyze
+            target (str): Text to compare with
+            threshold (float): Minimum similarity score (0 to 1)
+            
+        Returns:
+            bool: Whether the texts are similar enough
+            
+        Raises:
+            OperatorError: If arguments are invalid
+        """
+        if not isinstance(target, str):
+            raise OperatorError("SIMILAR_TO requires a string argument")
+        if not isinstance(threshold, (int, float)):
+            raise OperatorError("SIMILAR_TO threshold must be a number")
+        if not 0 <= threshold <= 1:
+            raise OperatorError("SIMILAR_TO threshold must be between 0 and 1")
+            
+        similarity = self.matcher.compute_similarity(
+            unit.content,
+            target,
+            unit.language
+        )
+        return similarity >= threshold
+
+class EmbeddingDistanceOperator(BaseOperator):
+    """Vector distance operator using a configurable encoder."""
+    
+    def __init__(self, encoder: Optional[BaseVectorEncoder] = None):
+        """
+        Initialize the distance operator.
+        
+        Args:
+            encoder (BaseVectorEncoder, optional): Custom vector encoder.
+                If None, uses the SimpleVectorEncoder.
+        """
+        super().__init__("distance")
+        self.encoder = encoder or SimpleVectorEncoder()
+
+    def __call__(self, unit: TextUnit, target: str, threshold: float) -> bool:
+        """
+        Check if the vector distance is within the threshold.
+        
+        Args:
+            unit (TextUnit): Text unit to analyze
+            target (str): Text to compare with
+            threshold (float): Maximum allowed distance
+            
+        Returns:
+            bool: Whether the distance is within threshold
+            
+        Raises:
+            OperatorError: If arguments are invalid
+        """
+        if not isinstance(target, str):
+            raise OperatorError("EMBEDDING_DISTANCE requires a string argument")
+        if not isinstance(threshold, (int, float)):
+            raise OperatorError("EMBEDDING_DISTANCE threshold must be a number")
+        if threshold < 0:
+            raise OperatorError("EMBEDDING_DISTANCE threshold must be non-negative")
+            
+        vec1 = self.encoder.encode(unit.content, unit.language)
+        vec2 = self.encoder.encode(target, unit.language)
+        distance = self.encoder.compute_distance(vec1, vec2)
+        
+        return distance <= threshold
+
+class VectorSimilarityOperator(BaseOperator):
+    """Vector similarity operator using a configurable encoder."""
+    
+    def __init__(self, encoder: Optional[BaseVectorEncoder] = None):
+        """
+        Initialize the similarity operator.
+        
+        Args:
+            encoder (BaseVectorEncoder, optional): Custom vector encoder.
+                If None, uses the SimpleVectorEncoder.
+        """
+        super().__init__("vector_similar")
+        self.encoder = encoder or SimpleVectorEncoder()
+
+    def __call__(
+        self,
+        unit: TextUnit,
+        target: str,
+        threshold: float = 0.5
+    ) -> bool:
+        """
+        Check if the vector similarity is above the threshold.
+        
+        Args:
+            unit (TextUnit): Text unit to analyze
+            target (str): Text to compare with
+            threshold (float): Minimum similarity score (0 to 1)
+            
+        Returns:
+            bool: Whether the similarity is above threshold
+            
+        Raises:
+            OperatorError: If arguments are invalid
+        """
+        if not isinstance(target, str):
+            raise OperatorError("VECTOR_SIMILAR requires a string argument")
+        if not isinstance(threshold, (int, float)):
+            raise OperatorError("VECTOR_SIMILAR threshold must be a number")
+        if not 0 <= threshold <= 1:
+            raise OperatorError("VECTOR_SIMILAR threshold must be between 0 and 1")
+            
+        vec1 = self.encoder.encode(unit.content, unit.language)
+        vec2 = self.encoder.encode(target, unit.language)
+        similarity = self.encoder.compute_similarity(vec1, vec2)
+        
+        return similarity >= threshold
 
 class SentimentOperator(BaseOperator):
     """Sentiment analysis operator that uses a configurable analyzer."""
@@ -200,6 +335,10 @@ class OperatorFactory:
         # Semantic operators
         self._operators[TokenType.TOPIC_IS] = TopicOperator
         self._operators[TokenType.SENTIMENT_IS] = SentimentOperator
+        self._operators[TokenType.SIMILAR_TO] = SimilarToOperator
+        self._operators[TokenType.VECTOR_SIMILAR] = VectorSimilarityOperator
+        self._operators[TokenType.EMBEDDING_DISTANCE] = EmbeddingDistanceOperator   
+        
 
     def register_operator(self, token_type: TokenType, operator_class: type):
         """
