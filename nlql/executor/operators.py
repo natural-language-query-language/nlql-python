@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, Union, Type, Callable
 from enum import Enum
 
 from nlql.executor.semantic import BaseSemanticMatcher, BaseTopicAnalyzer, BaseVectorEncoder, SimpleSemanticMatcher, SimpleTopicAnalyzer, SimpleVectorEncoder
@@ -340,17 +340,33 @@ class OperatorFactory:
         self._operators[TokenType.EMBEDDING_DISTANCE] = EmbeddingDistanceOperator   
         
 
-    def register_operator(self, token_type: TokenType, operator_class: type):
+    def register_operator(
+        self, 
+        token_type: TokenType, 
+        operator: Union[BaseOperator, Type[BaseOperator], Callable[[], BaseOperator]]
+    ):
         """
         Register a new operator.
         
         Args:
             token_type (TokenType): Token type for the operator
-            operator_class (type): Operator class to register
+            operator: Either a BaseOperator instance, BaseOperator class, or factory function
+            
+        Raises:
+            ValueError: If operator is not valid
         """
-        if not issubclass(operator_class, BaseOperator):
-            raise ValueError("Operator class must inherit from BaseOperator")
-        self._operators[token_type] = operator_class
+        if isinstance(operator, BaseOperator):
+            self._operators[token_type] = lambda: operator
+        elif isinstance(operator, type) and issubclass(operator, BaseOperator):
+            self._operators[token_type] = operator
+        elif callable(operator):
+            # Test the factory function
+            test_operator = operator()
+            if not isinstance(test_operator, BaseOperator):
+                raise ValueError("Factory function must return a BaseOperator instance")
+            self._operators[token_type] = operator
+        else:
+            raise ValueError("Operator must be a BaseOperator instance, class, or factory function")
 
     def create_operator(self, token_type: TokenType) -> BaseOperator:
         """

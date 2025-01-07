@@ -6,7 +6,7 @@ path = os.path.abspath(os.path.dirname(__file__))
 
 setup(
     name="nlql",
-    version="0.1.2",
+    version="0.1.3",
     keywords=("natural language", "sql", "llm", "ai", "rag", "nlql", "nlp"),
     description="NLQL (Natural Language Query Language) is a tool that helps you search through text using simple commands that look like SQL. Just like how SQL helps you find information in databases, NLQL helps you find information in regular text.",
     long_description=open("README.md").read(),
